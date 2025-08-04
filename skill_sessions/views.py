@@ -98,7 +98,14 @@ class CreateRequestView(LoginRequiredMixin, CreateView):
                     form.instance.recipient = offered_skill.user
                 form.instance.offered_skill = offered_skill
             except OfferedSkill.DoesNotExist:
-                pass
+                form.add_error(None, "The selected skill is no longer available.")
+                return self.form_invalid(form)
+        
+        # Ensure offered_skill is set
+        if not form.instance.offered_skill:
+            form.add_error(None, "Please select a skill to request.")
+            return self.form_invalid(form)
+            
         return super().form_valid(form)
 
 
@@ -376,6 +383,8 @@ class SessionUpdateView(LoginRequiredMixin, UpdateView):
 
 @login_required
 def cancel_session(request, pk):
+    from accounts.views import create_notification
+    
     session = get_object_or_404(SkillSwapSession, pk=pk)
     
     # Check if user is participant
@@ -384,8 +393,21 @@ def cancel_session(request, pk):
             return JsonResponse({'success': False, 'error': 'You are not a participant in this session'})
         return redirect('skill_sessions:session_list')
     
+    # Determine the other participant (receiver of the notification)
+    other_participant = session.learner if request.user == session.teacher else session.teacher
+    
     session.status = 'cancelled'
     session.save()
+    
+    # Create notification for the other participant
+    create_notification(
+        recipient=other_participant,
+        notification_type='session_cancelled',
+        title='Session Cancelled',
+        message=f'{request.user.get_full_name()} has cancelled the {session.skill.name} session scheduled for {session.scheduled_date.strftime("%B %d, %Y at %I:%M %p")}.',
+        related_user=request.user,
+        related_object_id=session.id
+    )
     
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({'success': True, 'message': 'Session cancelled successfully'})
@@ -393,7 +415,7 @@ def cancel_session(request, pk):
 
 
 @login_required
-def start_session(request, pk):
+def start_session_simple(request, pk):
     session = get_object_or_404(SkillSwapSession, pk=pk)
     session.status = 'in_progress'
     session.started_at = timezone.now()

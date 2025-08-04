@@ -275,10 +275,9 @@
                                                     <i class="fas fa-calendar-check mr-2"></i>View Session
                                                 </a>
                                             {% else %}
-                                                <a href="{% url 'skill_sessions:schedule_session' request.id %}" 
-                                                   class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-semibold">
-                                                    <i class="fas fa-calendar-plus mr-2"></i>Schedule Session
-                                                </a>
+                                                <span class="px-6 py-2 bg-gray-400 text-white rounded-lg font-semibold cursor-not-allowed">
+                                                    <i class="fas fa-hourglass-half mr-2"></i>Awaiting Schedule
+                                                </span>
                                             {% endif %}
                                         {% endif %}
                                         <a href="{% url 'accounts:profile_details' request.recipient.id %}" 
@@ -374,6 +373,11 @@
                                                 <i class="fas fa-clock mr-2"></i>Upcoming
                                             </span>
                                         {% endif %}
+                                        
+                                        <button class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-semibold"
+                                                onclick="cancelSession({{ session.id }})">
+                                            <i class="fas fa-times mr-2"></i>Cancel Session
+                                        </button>
                                         
                                         <a href="{% url 'skill_sessions:session_detail' session.id %}" 
                                            class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200 font-semibold text-center">
@@ -605,7 +609,7 @@ function cancelRequest(requestId) {
 }
 
 function startSession(sessionId) {
-    fetch(`/sessions/${sessionId}/start/`, {
+    fetch(`/sessions/sessions/${sessionId}/start/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken')
@@ -619,6 +623,26 @@ function startSession(sessionId) {
             showNotification(data.error || 'Cannot start session yet', 'error');
         }
     });
+}
+
+function cancelSession(sessionId) {
+    if (confirm('Are you sure you want to cancel this session?')) {
+        fetch(`/sessions/${sessionId}/cancel/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+                showNotification(data.message, 'success');
+            } else {
+                showNotification(data.error || 'An error occurred', 'error');
+            }
+        });
+    }
 }
 
 function closeModal() {
