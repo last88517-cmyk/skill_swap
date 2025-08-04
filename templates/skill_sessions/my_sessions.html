@@ -114,7 +114,6 @@
                             <!-- Session Details -->
                             <div class="grid grid-cols-2 gap-4 mb-4 text-sm">
                                 <div class="flex items-center">
-                                    <i class="fas fa-calendar text-purple-500 mr-2"></i>
                                     <span>{{ session.scheduled_date|date:"M d, Y" }}</span>
                                 </div>
                                 <div class="flex items-center">
@@ -178,6 +177,10 @@
                                     <button class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition duration-200"
                                             onclick="rescheduleSession({{ session.id }})" title="Reschedule">
                                         <i class="fas fa-calendar-alt"></i>
+                                    </button>
+                                    <button class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition duration-200"
+                                            onclick="cancelSession({{ session.id }})" title="Cancel Session">
+                                        <i class="fas fa-times"></i>
                                     </button>
                                 {% endif %}
                             </div>
@@ -317,7 +320,6 @@
                                             <!-- Session Details Grid -->
                                             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
                                                 <div class="flex items-center">
-                                                    <i class="fas fa-calendar text-blue-500 mr-1"></i>
                                                     <span>{{ session.scheduled_date|date:"M d, Y" }}</span>
                                                 </div>
                                                 <div class="flex items-center">
@@ -493,7 +495,7 @@ document.getElementById('toggleView').addEventListener('click', function() {
 
 // Session actions
 function startSession(sessionId) {
-    fetch(`/sessions/${sessionId}/start/`, {
+    fetch(`/sessions/sessions/${sessionId}/start/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken')
@@ -506,12 +508,38 @@ function startSession(sessionId) {
         } else {
             showNotification(data.error || 'Cannot start session yet', 'error');
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('An error occurred while starting the session.', 'error');
     });
 }
 
 function rescheduleSession(sessionId) {
     // This would open a modal or redirect to reschedule page
     window.location.href = `/sessions/${sessionId}/reschedule/`;
+}
+
+function cancelSession(sessionId) {
+    if (confirm('Are you sure you want to cancel this session?')) {
+        fetch(`/sessions/${sessionId}/cancel/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                showNotification('Error cancelling session', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while cancelling the session.', 'error');
+        });
+    }
 }
 
 function showNotification(message, type) {

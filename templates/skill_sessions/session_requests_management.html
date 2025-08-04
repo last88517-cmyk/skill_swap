@@ -152,10 +152,16 @@
                                         </div>
                                     {% elif request.status == 'accepted' %}
                                         <div class="mt-4 lg:mt-0 lg:ml-6">
-                                            <a href="{% url 'skill_sessions:schedule_session' request.id %}" 
-                                               class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-semibold">
-                                                <i class="fas fa-calendar-plus mr-2"></i>Schedule Session
-                                            </a>
+                                            {% if request.session %}
+                                                <span class="px-6 py-2 bg-gray-400 text-white rounded-lg font-semibold cursor-not-allowed">
+                                                    <i class="fas fa-check-circle mr-2"></i>Session Scheduled
+                                                </span>
+                                            {% else %}
+                                                <a href="{% url 'skill_sessions:schedule_session' request.id %}" 
+                                                   class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-semibold">
+                                                    <i class="fas fa-calendar-plus mr-2"></i>Schedule Session
+                                                </a>
+                                            {% endif %}
                                         </div>
                                     {% else %}
                                         <div class="mt-4 lg:mt-0 lg:ml-6 text-sm text-gray-500">

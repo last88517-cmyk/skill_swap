@@ -57,6 +57,16 @@ class CreateRequestView(LoginRequiredMixin, CreateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # Get recipient from URL parameter if provided
+        user_id = self.kwargs.get('user_id')
+        if user_id:
+            try:
+                from django.contrib.auth.models import User
+                recipient = User.objects.get(id=user_id)
+                context['recipient'] = recipient
+            except User.DoesNotExist:
+                pass
+        
         # Get the offered skill from query parameters
         offered_skill_id = self.request.GET.get('offered_skill')
         if offered_skill_id:
@@ -64,20 +74,28 @@ class CreateRequestView(LoginRequiredMixin, CreateView):
                 from skills.models import OfferedSkill
                 offered_skill = OfferedSkill.objects.get(id=offered_skill_id)
                 context['offered_skill'] = offered_skill
-                context['recipient'] = offered_skill.user
+                if not user_id:  # Only set recipient from offered skill if not already set from URL
+                    context['recipient'] = offered_skill.user
             except OfferedSkill.DoesNotExist:
                 pass
         return context
     
     def form_valid(self, form):
         form.instance.requester = self.request.user
+        
+        # Get recipient from URL parameter if provided
+        user_id = self.kwargs.get('user_id')
+        if user_id:
+            form.instance.recipient_id = user_id
+        
         # Get recipient from offered skill
         offered_skill_id = self.request.GET.get('offered_skill')
         if offered_skill_id:
             try:
                 from skills.models import OfferedSkill
                 offered_skill = OfferedSkill.objects.get(id=offered_skill_id)
-                form.instance.recipient = offered_skill.user
+                if not user_id:  # Only set recipient from offered skill if not already set from URL
+                    form.instance.recipient = offered_skill.user
                 form.instance.offered_skill = offered_skill
             except OfferedSkill.DoesNotExist:
                 pass
@@ -359,8 +377,18 @@ class SessionUpdateView(LoginRequiredMixin, UpdateView):
 @login_required
 def cancel_session(request, pk):
     session = get_object_or_404(SkillSwapSession, pk=pk)
+    
+    # Check if user is participant
+    if request.user not in [session.teacher, session.learner]:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'You are not a participant in this session'})
+        return redirect('skill_sessions:session_list')
+    
     session.status = 'cancelled'
     session.save()
+    
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'message': 'Session cancelled successfully'})
     return redirect('skill_sessions:session_list')
 
 
