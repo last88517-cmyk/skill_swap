@@ -91,13 +91,53 @@ class SessionScheduleForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         scheduled_date = cleaned_data.get('scheduled_date')
+        duration_minutes = cleaned_data.get('duration_minutes')
         format_type = cleaned_data.get('format')
         meeting_link = cleaned_data.get('meeting_link')
         
         if scheduled_date:
             from django.utils import timezone
+            from datetime import timedelta
+            
             if scheduled_date <= timezone.now():
                 raise forms.ValidationError('Session must be scheduled for a future date and time.')
+            
+            # Check for overlapping sessions if we have both date and duration
+            if duration_minutes:
+                session_end_time = scheduled_date + timedelta(minutes=duration_minutes)
+                
+                # Import here to avoid circular imports
+                from .models import SkillSwapSession
+                from django.db.models import Q
+                
+                # Get user from form instance (if available) or from the view
+                user = getattr(self, 'user', None)
+                if hasattr(self, 'instance') and hasattr(self.instance, 'teacher'):
+                    user = self.instance.teacher
+                elif hasattr(self, 'instance') and hasattr(self.instance, 'learner'):
+                    user = self.instance.learner
+                
+                if user:
+                    # Check for overlapping sessions where user is either teacher or learner
+                    overlapping_sessions = SkillSwapSession.objects.filter(
+                        Q(teacher=user) | Q(learner=user),
+                        status__in=['scheduled', 'in_progress'],
+                        scheduled_date__lt=session_end_time,
+                        scheduled_date__gte=scheduled_date - timedelta(minutes=480)  # Check 8 hours before to account for long sessions
+                    )
+                    
+                    # Filter sessions that actually overlap
+                    for session in overlapping_sessions:
+                        existing_end = session.scheduled_date + timedelta(minutes=session.duration_minutes)
+                        
+                        # Check if the time ranges overlap
+                        if (scheduled_date < existing_end and session_end_time > session.scheduled_date):
+                            # Exclude the current session if we're editing
+                            if not (hasattr(self, 'instance') and self.instance.pk == session.pk):
+                                raise forms.ValidationError(
+                                    f'You already have a session scheduled from {session.scheduled_date.strftime("%b %d, %Y at %I:%M %p")} '
+                                    f'to {existing_end.strftime("%I:%M %p")}. Please choose a different time.'
+                                )
         
         if format_type == 'online' and not meeting_link:
             raise forms.ValidationError('Meeting link is required for online sessions.')

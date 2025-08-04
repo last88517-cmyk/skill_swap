@@ -86,10 +86,16 @@ class CreateRequestView(LoginRequiredMixin, CreateView):
         # Get recipient from URL parameter if provided
         user_id = self.kwargs.get('user_id')
         if user_id:
-            form.instance.recipient_id = user_id
+            try:
+                from django.contrib.auth.models import User
+                recipient = User.objects.get(id=user_id)
+                form.instance.recipient = recipient
+            except User.DoesNotExist:
+                form.add_error(None, "The selected user does not exist.")
+                return self.form_invalid(form)
         
-        # Get recipient from offered skill
-        offered_skill_id = self.request.GET.get('offered_skill')
+        # Get offered skill from URL parameter or form data
+        offered_skill_id = self.request.GET.get('offered_skill') or self.request.POST.get('offered_skill')
         if offered_skill_id:
             try:
                 from skills.models import OfferedSkill
@@ -101,8 +107,12 @@ class CreateRequestView(LoginRequiredMixin, CreateView):
                 form.add_error(None, "The selected skill is no longer available.")
                 return self.form_invalid(form)
         
-        # Ensure offered_skill is set
-        if not form.instance.offered_skill:
+        # Ensure both recipient and offered_skill are set
+        if not hasattr(form.instance, 'recipient') or not form.instance.recipient:
+            form.add_error(None, "Please select a recipient for this request.")
+            return self.form_invalid(form)
+            
+        if not hasattr(form.instance, 'offered_skill') or not form.instance.offered_skill:
             form.add_error(None, "Please select a skill to request.")
             return self.form_invalid(form)
             
@@ -399,12 +409,17 @@ def cancel_session(request, pk):
     session.status = 'cancelled'
     session.save()
     
+    # Reset the related request status to allow rescheduling
+    if hasattr(session, 'request') and session.request:
+        session.request.status = 'accepted'  # Keep it accepted so they can reschedule
+        session.request.save()
+    
     # Create notification for the other participant
     create_notification(
         recipient=other_participant,
         notification_type='session_cancelled',
         title='Session Cancelled',
-        message=f'{request.user.get_full_name()} has cancelled the {session.skill.name} session scheduled for {session.scheduled_date.strftime("%B %d, %Y at %I:%M %p")}.',
+        message=f'{request.user.get_full_name()} has cancelled the {session.skill.name} session scheduled for {session.scheduled_date.strftime("%B %d, %Y at %I:%M %p")}. You can reschedule if needed.',
         related_user=request.user,
         related_object_id=session.id
     )
@@ -503,12 +518,18 @@ class ScheduleSessionView(LoginRequiredMixin, CreateView):
         if request_obj.status != 'accepted':
             raise PermissionDenied("This request has not been accepted yet.")
         
-        # Check if session already exists
-        if hasattr(request_obj, 'session'):
+        # Check if session already exists (but allow rescheduling if cancelled)
+        if hasattr(request_obj, 'session') and request_obj.session.status not in ['cancelled']:
             raise PermissionDenied("A session has already been scheduled for this request.")
         
         context['skill_request'] = request_obj
         return context
+    
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # Pass the current user to the form for conflict checking
+        form.user = self.request.user
+        return form
     
     def form_valid(self, form):
         request_obj = get_object_or_404(SkillSwapRequest, pk=self.kwargs['request_id'])
@@ -520,8 +541,12 @@ class ScheduleSessionView(LoginRequiredMixin, CreateView):
         if request_obj.status != 'accepted':
             raise PermissionDenied("This request has not been accepted yet.")
         
-        if hasattr(request_obj, 'session'):
+        if hasattr(request_obj, 'session') and request_obj.session.status not in ['cancelled']:
             raise PermissionDenied("A session has already been scheduled for this request.")
+        
+        # If there's a cancelled session, delete it before creating a new one
+        if hasattr(request_obj, 'session') and request_obj.session.status == 'cancelled':
+            request_obj.session.delete()
         
         form.instance.request = request_obj
         form.instance.teacher = request_obj.recipient
@@ -618,14 +643,41 @@ def approve_session(request, session_id):
         swap_request.responded_at = timezone.now()
         swap_request.save()
         
-        # Create a session
+        # Create a session with conflict checking
+        from datetime import timedelta
+        from django.db.models import Q
+        
+        scheduled_date = timezone.now() + timedelta(days=1)  # Default to tomorrow
+        duration = swap_request.proposed_duration
+        session_end_time = scheduled_date + timedelta(minutes=duration)
+        
+        # Check for scheduling conflicts for both teacher and learner
+        teacher = swap_request.recipient
+        learner = swap_request.requester
+        
+        for user in [teacher, learner]:
+            overlapping_sessions = SkillSwapSession.objects.filter(
+                Q(teacher=user) | Q(learner=user),
+                status__in=['scheduled', 'in_progress'],
+                scheduled_date__lt=session_end_time,
+                scheduled_date__gte=scheduled_date - timedelta(minutes=480)
+            )
+            
+            for session in overlapping_sessions:
+                existing_end = session.scheduled_date + timedelta(minutes=session.duration_minutes)
+                if (scheduled_date < existing_end and session_end_time > session.scheduled_date):
+                    # If there's a conflict, schedule for the next available day
+                    scheduled_date = scheduled_date + timedelta(days=1)
+                    session_end_time = scheduled_date + timedelta(minutes=duration)
+                    break
+        
         session = SkillSwapSession.objects.create(
             request=swap_request,
-            teacher=swap_request.recipient,  # The person who approved is the teacher
-            learner=swap_request.requester,
+            teacher=teacher,
+            learner=learner,
             skill=swap_request.offered_skill.skill,
-            scheduled_date=timezone.now() + timezone.timedelta(days=1),  # Default to tomorrow
-            duration_minutes=swap_request.proposed_duration,
+            scheduled_date=scheduled_date,
+            duration_minutes=duration,
             format=swap_request.proposed_format,
             location=swap_request.proposed_location,
             status='scheduled'
