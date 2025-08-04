@@ -33,7 +33,7 @@ urlpatterns = [
     path('<int:pk>/', views.SessionDetailView.as_view(), name='session_detail'),
     path('<int:pk>/edit/', views.SessionUpdateView.as_view(), name='session_edit'),
     path('<int:pk>/cancel/', views.cancel_session, name='session_cancel'),
-    path('<int:session_id>/start/', views.start_session, name='session_start'),
+    path('<int:pk>/start/', views.start_session_simple, name='session_start'),
     path('<int:pk>/end/', views.end_session, name='session_end'),
     
     # Session details and actions
