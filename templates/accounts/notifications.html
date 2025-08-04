@@ -155,21 +155,21 @@
                                                 </div>
                                             {% elif notification.notification_type == 'request_accepted' and notification.related_object_id %}
                                                 <div class="flex space-x-2">
-                                                    <a href="{% url 'skill_sessions:session_details' notification.related_object_id %}" 
+                                                    <a href="{% url 'skill_sessions:session_detail' notification.related_object_id %}" 
                                                        class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition duration-200">
                                                         View Session
                                                     </a>
                                                 </div>
                                             {% elif notification.notification_type == 'session_scheduled' and notification.related_object_id %}
                                                 <div class="flex space-x-2">
-                                                    <a href="{% url 'skill_sessions:session_details' notification.related_object_id %}" 
+                                                    <a href="{% url 'skill_sessions:session_detail' notification.related_object_id %}" 
                                                        class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition duration-200">
                                                         View Session
                                                     </a>
                                                 </div>
                                             {% elif notification.notification_type == 'session_reminder' and notification.related_object_id %}
                                                 <div class="flex space-x-2">
-                                                    <a href="{% url 'skill_sessions:session_details' notification.related_object_id %}" 
+                                                    <a href="{% url 'skill_sessions:session_detail' notification.related_object_id %}" 
                                                        class="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 transition duration-200">
                                                         Join Session
                                                     </a>

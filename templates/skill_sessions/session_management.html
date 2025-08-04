@@ -95,12 +95,21 @@
                                         </div>
                                     </div>
                                     <div class="flex space-x-2">
-                                        <button class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
-                                            <i class="fas fa-video mr-1"></i>Join
-                                        </button>
-                                        <button class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors">
-                                            <i class="fas fa-times mr-1"></i>Cancel
-                                        </button>
+                                        {% if session.can_start %}
+                                            <a href="{% url 'skill_sessions:session_start' session.id %}" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                                                <i class="fas fa-play mr-1"></i>Start Session
+                                            </a>
+                                        {% else %}
+                                            <a href="{% url 'skill_sessions:session_detail' session.id %}" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                                                <i class="fas fa-info-circle mr-1"></i>View Details
+                                            </a>
+                                        {% endif %}
+                                        <form method="post" action="{% url 'skill_sessions:session_cancel' session.id %}" class="inline" onsubmit="return confirm('Are you sure you want to cancel this session?')">
+                                            {% csrf_token %}
+                                            <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors">
+                                                <i class="fas fa-times mr-1"></i>Cancel
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
                             </div>
@@ -145,9 +154,12 @@
                                         </div>
                                     </div>
                                     <div class="flex space-x-2">
-                                        <button class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
-                                            <i class="fas fa-stop mr-1"></i>End Session
-                                        </button>
+                                        <form method="post" action="{% url 'skill_sessions:session_end' session.id %}" class="inline" onsubmit="return confirm('Are you sure you want to end this session?')">
+                                            {% csrf_token %}
+                                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                                                <i class="fas fa-stop mr-1"></i>End Session
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
                             </div>
@@ -193,9 +205,12 @@
                                         </div>
                                     </div>
                                     <div class="flex space-x-2">
-                                        <button class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
-                                            <i class="fas fa-star mr-1"></i>Review
-                                        </button>
+                                        <a href="{% url 'skill_sessions:leave_review' session.id %}" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                                            <i class="fas fa-star mr-1"></i>Leave Review
+                                        </a>
+                                        <a href="{% url 'skill_sessions:session_detail' session.id %}" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                                            <i class="fas fa-info-circle mr-1"></i>View Details
+                                        </a>
                                     </div>
                                 </div>
                             </div>
