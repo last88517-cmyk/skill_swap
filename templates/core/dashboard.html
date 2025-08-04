@@ -26,15 +26,15 @@
                 <!-- Quick Stats -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="bg-green-50 p-6 rounded-xl text-center">
-                        <div class="text-3xl font-bold text-green-600 mb-2">{{ stats.skills_completed|default:"0" }}</div>
+                        <div class="text-3xl font-bold text-green-600 mb-2" id="skills-completed-count">{{ stats.skills_completed|default:"0" }}</div>
                         <div class="text-gray-700">Skills Completed</div>
                     </div>
                     <div class="bg-purple-50 p-6 rounded-xl text-center">
-                        <div class="text-3xl font-bold text-purple-600 mb-2">{{ stats.sessions_this_month|default:"0" }}</div>
+                        <div class="text-3xl font-bold text-purple-600 mb-2" id="sessions-month-count">{{ stats.sessions_this_month|default:"0" }}</div>
                         <div class="text-gray-700">Sessions This Month</div>
                     </div>
                     <div class="bg-yellow-50 p-6 rounded-xl text-center">
-                        <div class="text-3xl font-bold text-yellow-600 mb-2">{{ stats.active_requests|default:"0" }}</div>
+                        <div class="text-3xl font-bold text-yellow-600 mb-2" id="active-requests-count">{{ stats.active_requests|default:"0" }}</div>
                         <div class="text-gray-700">Active Requests</div>
                     </div>
                 </div>
@@ -129,19 +129,19 @@
             .then(response => response.json())
             .then(data => {
                 // Update the skills completed count
-                const skillsCompletedElement = document.querySelector('.text-green-600.mb-2');
+                const skillsCompletedElement = document.getElementById('skills-completed-count');
                 if (skillsCompletedElement) {
                     skillsCompletedElement.textContent = data.skills_completed;
                 }
                 
                 // Update sessions this month
-                const sessionsElement = document.querySelector('.text-purple-600.mb-2');
+                const sessionsElement = document.getElementById('sessions-month-count');
                 if (sessionsElement) {
                     sessionsElement.textContent = data.sessions_this_month;
                 }
                 
                 // Update active requests
-                const requestsElement = document.querySelector('.text-yellow-600.mb-2');
+                const requestsElement = document.getElementById('active-requests-count');
                 if (requestsElement) {
                     requestsElement.textContent = data.active_requests;
                 }

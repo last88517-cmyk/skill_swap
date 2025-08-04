@@ -363,21 +363,28 @@
                                     </div>
                                     
                                     <div class="mt-4 lg:mt-0 lg:ml-6 flex flex-col space-y-2">
-                                        {% if session.can_start %}
-                                            <button class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-semibold"
-                                                    onclick="startSession({{ session.id }})">
-                                                <i class="fas fa-play mr-2"></i>Start Session
+                                        {% if session.status == 'cancelled' %}
+                                            <a href="{% url 'skill_sessions:reschedule_session' session.id %}" 
+                                               class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-semibold text-center">
+                                                <i class="fas fa-calendar-plus mr-2"></i>Reschedule Session
+                                            </a>
+                                        {% elif session.status == 'scheduled' %}
+                                            {% if session.can_start %}
+                                                <button class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-semibold"
+                                                        onclick="startSession({{ session.id }})">
+                                                    <i class="fas fa-play mr-2"></i>Start Session
+                                                </button>
+                                            {% elif session.is_upcoming %}
+                                                <span class="px-6 py-2 bg-blue-100 text-blue-800 rounded-lg text-center font-semibold">
+                                                    <i class="fas fa-clock mr-2"></i>Upcoming
+                                                </span>
+                                            {% endif %}
+                                            
+                                            <button class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-semibold"
+                                                    onclick="cancelSession({{ session.id }})">
+                                                <i class="fas fa-times mr-2"></i>Cancel Session
                                             </button>
-                                        {% elif session.is_upcoming %}
-                                            <span class="px-6 py-2 bg-blue-100 text-blue-800 rounded-lg text-center font-semibold">
-                                                <i class="fas fa-clock mr-2"></i>Upcoming
-                                            </span>
                                         {% endif %}
-                                        
-                                        <button class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-semibold"
-                                                onclick="cancelSession({{ session.id }})">
-                                            <i class="fas fa-times mr-2"></i>Cancel Session
-                                        </button>
                                         
                                         <a href="{% url 'skill_sessions:session_detail' session.id %}" 
                                            class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200 font-semibold text-center">
@@ -578,6 +585,11 @@ function submitRequestResponse(requestId, action) {
             
             // Show success notification
             showNotification(data.message, 'success');
+            
+            // Trigger dashboard stats update
+            if (window.triggerStatsUpdate) {
+                window.triggerStatsUpdate();
+            }
         } else {
             showNotification(data.error || 'An error occurred', 'error');
         }
