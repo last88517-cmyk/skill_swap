@@ -60,7 +60,7 @@
                                 <i class="fas fa-fire text-orange-500"></i>
                                 <span class="text-sm text-gray-600">Trending</span>
                             </div>
-                            <a href="{% url 'skills:skill_list' %}?search={{ skill.name }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            <a href="{% url 'skills:find_tutors' skill.id %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                                 Find Teachers <i class="fas fa-arrow-right ml-1"></i>
                             </a>
                         </div>
