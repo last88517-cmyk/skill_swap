@@ -169,7 +169,7 @@
                                     </div>
                                 {% endif %}
                                 
-                                <a href="{% url 'skill_sessions:session_details' session.id %}" 
+                                <a href="{% url 'skill_sessions:session_detail' session.id %}" 
                                    class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 font-semibold">
                                     <i class="fas fa-info-circle mr-1"></i>Details
                                 </a>
@@ -358,7 +358,7 @@
                                         {% endif %}
                                     {% endif %}
                                     
-                                    <a href="{% url 'skill_sessions:session_details' session.id %}" 
+                                    <a href="{% url 'skill_sessions:session_detail' session.id %}" 
                                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-semibold text-center">
                                         <i class="fas fa-eye mr-1"></i>View
                                     </a>

@@ -36,7 +36,6 @@ urlpatterns = [
     path('<int:pk>/end/', views.end_session, name='session_end'),
     
     # Session details and actions
-    path('session/<int:session_id>/', views.SessionDetailView.as_view(), name='session_details'),
     path('session/<int:session_id>/reschedule/', views.SessionUpdateView.as_view(), name='reschedule_session'),
     
     # Reviews
