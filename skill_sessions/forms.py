@@ -67,9 +67,25 @@ class SessionScheduleForm(forms.ModelForm):
         model = SkillSwapSession
         fields = ['scheduled_date', 'duration_minutes', 'format', 'location', 'meeting_link']
         widgets = {
-            'scheduled_date': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-            'location': forms.TextInput(attrs={'placeholder': 'Meeting location'}),
-            'meeting_link': forms.URLInput(attrs={'placeholder': 'https://meet.google.com/...'}),
+            'scheduled_date': forms.DateTimeInput(attrs={
+                'type': 'datetime-local',
+                'class': 'form-input'
+            }),
+            'duration_minutes': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'min': '15',
+                'max': '480',
+                'step': '15'
+            }),
+            'format': forms.Select(attrs={'class': 'form-select'}),
+            'location': forms.TextInput(attrs={
+                'placeholder': 'Meeting location',
+                'class': 'form-input'
+            }),
+            'meeting_link': forms.URLInput(attrs={
+                'placeholder': 'https://meet.google.com/...',
+                'class': 'form-input'
+            }),
         }
     
     def clean(self):

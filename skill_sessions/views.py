@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.db import models
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.core.exceptions import PermissionDenied
 
 from .models import SkillSwapRequest, SkillSwapSession, SessionReview
 from .forms import SkillSwapRequestForm, RequestResponseForm, SessionScheduleForm, SessionReviewForm
@@ -116,7 +117,7 @@ class RequestDetailView(LoginRequiredMixin, DetailView):
             profile_user = request_obj.requester
         
         from django.shortcuts import redirect
-        return redirect('accounts:user_profile_details', user_id=profile_user.id)
+        return redirect('accounts:profile_details', user_id=profile_user.id)
 
 
 class RequestResponseView(LoginRequiredMixin, UpdateView):
@@ -440,13 +441,59 @@ class ScheduleSessionView(LoginRequiredMixin, CreateView):
     template_name = 'skill_sessions/schedule_session.html'
     success_url = reverse_lazy('skill_sessions:session_list')
     
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        request_obj = get_object_or_404(SkillSwapRequest, pk=self.kwargs['request_id'])
+        
+        # Check if user is authorized to schedule this session
+        if self.request.user not in [request_obj.requester, request_obj.recipient]:
+            raise PermissionDenied("You are not authorized to schedule this session.")
+        
+        # Check if request is accepted
+        if request_obj.status != 'accepted':
+            raise PermissionDenied("This request has not been accepted yet.")
+        
+        # Check if session already exists
+        if hasattr(request_obj, 'session'):
+            raise PermissionDenied("A session has already been scheduled for this request.")
+        
+        context['skill_request'] = request_obj
+        return context
+    
     def form_valid(self, form):
         request_obj = get_object_or_404(SkillSwapRequest, pk=self.kwargs['request_id'])
+        
+        # Double-check permissions
+        if self.request.user not in [request_obj.requester, request_obj.recipient]:
+            raise PermissionDenied("You are not authorized to schedule this session.")
+        
+        if request_obj.status != 'accepted':
+            raise PermissionDenied("This request has not been accepted yet.")
+        
+        if hasattr(request_obj, 'session'):
+            raise PermissionDenied("A session has already been scheduled for this request.")
+        
         form.instance.request = request_obj
         form.instance.teacher = request_obj.recipient
         form.instance.learner = request_obj.requester
         form.instance.skill = request_obj.offered_skill.skill
-        return super().form_valid(form)
+        
+        response = super().form_valid(form)
+        
+        # Create notification for the other user
+        from accounts.views import create_notification
+        other_user = request_obj.requester if self.request.user == request_obj.recipient else request_obj.recipient
+        
+        create_notification(
+            recipient=other_user,
+            notification_type='session_scheduled',
+            title='Session Scheduled!',
+            message=f'A session for {request_obj.offered_skill.skill.name} has been scheduled for {form.instance.scheduled_date.strftime("%B %d, %Y at %I:%M %p")}.',
+            related_user=self.request.user,
+            related_object_id=form.instance.id
+        )
+        
+        return response
 
 
 class SessionManagementView(LoginRequiredMixin, ListView):
@@ -712,33 +759,20 @@ def handle_request_action(request, request_id, action):
             swap_request.response_message = response_message
             swap_request.save()
             
-            # Create a session
-            session = SkillSwapSession.objects.create(
-                request=swap_request,
-                teacher=swap_request.recipient,
-                learner=swap_request.requester,
-                skill=swap_request.offered_skill.skill,
-                scheduled_date=timezone.now() + timezone.timedelta(days=1),
-                duration_minutes=swap_request.proposed_duration,
-                format=swap_request.proposed_format,
-                location=swap_request.proposed_location,
-                status='scheduled'
-            )
-            
             # Create notification for requester
             create_notification(
                 recipient=swap_request.requester,
                 notification_type='request_accepted',
                 title='Session Request Accepted!',
-                message=f'{swap_request.recipient.get_full_name()} accepted your request to learn {swap_request.offered_skill.skill.name}.',
+                message=f'{swap_request.recipient.get_full_name()} accepted your request to learn {swap_request.offered_skill.skill.name}. You can now schedule the session.',
                 related_user=swap_request.recipient,
-                related_object_id=session.id
+                related_object_id=swap_request.id
             )
             
             return JsonResponse({
                 'success': True, 
-                'message': 'Request accepted successfully!',
-                'session_id': session.id
+                'message': 'Request accepted successfully! You can now schedule the session.',
+                'request_id': swap_request.id
             })
             
         elif action == 'reject':
