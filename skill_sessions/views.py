@@ -381,7 +381,7 @@ class SessionUpdateView(LoginRequiredMixin, UpdateView):
     model = SkillSwapSession
     form_class = SessionScheduleForm
     template_name = 'skill_sessions/session_form.html'
-    success_url = reverse_lazy('skill_sessions:session_list')
+    success_url = reverse_lazy('skill_sessions:request_management')
     
     def get_queryset(self):
         return SkillSwapSession.objects.filter(
@@ -389,6 +389,29 @@ class SessionUpdateView(LoginRequiredMixin, UpdateView):
         ) | SkillSwapSession.objects.filter(
             learner=self.request.user
         )
+    
+    def form_valid(self, form):
+        # If this is a reschedule (session was cancelled), reset status to scheduled
+        if form.instance.status == 'cancelled':
+            form.instance.status = 'scheduled'
+        
+        response = super().form_valid(form)
+        
+        # Create notification for the other user about the reschedule
+        from accounts.views import create_notification
+        other_user = form.instance.learner if self.request.user == form.instance.teacher else form.instance.teacher
+        
+        create_notification(
+            recipient=other_user,
+            notification_type='session_scheduled',
+            title='Session Rescheduled!',
+            message=f'Your {form.instance.skill.name} session has been rescheduled to {form.instance.scheduled_date.strftime("%B %d, %Y at %I:%M %p")}.',
+            related_user=self.request.user,
+            related_object_id=form.instance.id
+        )
+        
+        messages.success(self.request, 'Session has been successfully rescheduled!')
+        return response
 
 
 @login_required
@@ -720,10 +743,10 @@ def session_requests_management(request):
         requester=request.user
     ).select_related('recipient', 'offered_skill', 'offered_skill__skill').order_by('-created_at')
     
-    # Get scheduled sessions
+    # Get scheduled and cancelled sessions
     scheduled_sessions = SkillSwapSession.objects.filter(
         models.Q(teacher=request.user) | models.Q(learner=request.user),
-        status='scheduled'
+        status__in=['scheduled', 'cancelled']
     ).select_related('teacher', 'learner', 'skill').order_by('scheduled_date')
     
     # Get completed sessions for history
